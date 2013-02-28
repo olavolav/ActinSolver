@@ -7,9 +7,9 @@ INPUT_FILE_NAME = "out-tail.dat"
 
 # load data from file
 data = np.loadtxt( INPUT_FILE_NAME )
-data, times = data[:,0], data[:,1]
+data, times = data[:,1], data[:,0]
 
 plt.xlabel('time (s)')
-plt.ylabel('photon count (arb. units)')
-plt.plot( data, times )
+plt.ylabel('photon count (a.u.)')
+plt.plot(times, data)
 plt.show()
