@@ -13,7 +13,7 @@ gamma = 0.0002 # step size factor of gradient descent
 epsilon = 0.1 # accuracy limit
 
 print("------ Actin spike solver, OS, Feb 2013 ------")
-INPUT_FILE_NAME = "out-minitail.dat"
+INPUT_FILE_NAME = "out-tail.dat"
 
 print("Loading data from file '{f}'...".format(f=INPUT_FILE_NAME))
 data = np.loadtxt( INPUT_FILE_NAME )
