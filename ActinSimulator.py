@@ -35,6 +35,9 @@ class ActinSimulator:
     
     return [signal_times, signal_amplitudes]
   
+  def generate_time_series_for_duration(self, time):
+    return self.generate_time_series( round(time / self.tau_image) )
+  
   def __spiking_probability(self):
     return self.rate * self.tau_image
   
