@@ -7,7 +7,7 @@ import math as math
 class ActinSimulator:
   """A simulator of actin fluorescence time series to test the Bayesian analysis."""
   
-  def __init__(self, a_rate, avg_actin_c, fluoro_per_actin, n_sigma, tau_k, tau_i, f_baseline=0.0):
+  def __init__(self, a_rate, avg_actin_c, fluoro_per_actin, n_sigma, tau_k=0.005, tau_i=0.001, f_baseline=0.0):
     self.rate = a_rate
     self.actin_count_mean = avg_actin_c
     self.fluorescence_per_actin = fluoro_per_actin
@@ -23,9 +23,8 @@ class ActinSimulator:
     # 1.) Generate (hidden) spike data
     for i in range(samples):
       if random.random() < self.__spiking_probability():
-        print "DEBUG: simulating a spike at sample #{s} ({t}s).".format(s=i,t=(1.0*i)*self.tau_image)
+        # print "DEBUG: simulating a spike at sample #{s} ({t}s).".format(s=i,t=(1.0*i)*self.tau_image)
         # there was a spike at that time point, now we have to determine its amplitude
-        # signal_amplitudes[i] = self.amplitude_mean # <------------------------- for testing only!!!!!
         signal_amplitudes[i] = self.fluorescence_per_actin *np.random.poisson(self.actin_count_mean)
     
     # 2.) Convolve with kernel
