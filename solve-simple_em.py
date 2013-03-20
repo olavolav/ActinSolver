@@ -7,23 +7,32 @@ import math as math
 PI = math.pi
 baseline = 0.5 # photon count baseline [photons]
 std_noise = 0.1 # width of camera noise [photons]
-tau = 0.001 # time scale of exponential decay of signal [s]
+tau = 0.002 # time scale of exponential decay of signal [s]
 tau_image = 0.001 # width of one sample, inverse of imaging rate [s]
 gamma = 0.0001 # step size factor of gradient descent
-gamma_for_tau = 0.000000000005 # step size factor of gradient descent
+gamma_for_tau = 0.00000000005 # step size factor of gradient descent
 std_tau = tau/5. # width of possible tau's [s]
 epsilon = 0.1 # accuracy limit
 alpha = 0.01 # scaling factor of negentropy prior
 ACCURACY_GOAL_OF_LOG_LIKELHOOD = 5.0
 
+USE_SIMULATED_DATA = True
+
 print("------ Actin spike solver, OS, Feb 2013 ------")
 INPUT_FILE_NAME = "out-tail.dat"
 
-print("Loading data from file '{f}'...".format(f=INPUT_FILE_NAME))
-data = np.loadtxt( INPUT_FILE_NAME )
-data, times = data[:,1], data[:,0]
+if(USE_SIMULATED_DATA):
+  print("Simulating data...")
+  from ActinSimulator import *
+  sim = ActinSimulator(2.0, 20, 0.1, std_noise, 0.005, tau_image, baseline)
+  times, data = sim.generate_time_series_for_duration(5.0)
+else:
+  print("Loading data from file '{f}'...".format(f=INPUT_FILE_NAME))
+  data = np.loadtxt( INPUT_FILE_NAME )
+  data, times = data[:,1], data[:,0]
+
 samples = data.size
-print(" -> done, {s} samples found ({st}s).".format(s=samples,st=samples*tau_image))
+print(" -> done, {s} samples ({st}s).".format(s=samples,st=samples*tau_image))
 
 print("Initializing...")
 kernel_length = 21 # in samples, must be an odd number
@@ -93,6 +102,7 @@ for em_step in range(2):
     gradient_step += 1
   
   print("M: Optimizing parameters (gradient ascent)...")
+  # currently, this step updates only one parameter: tau
   gradient_step = 1
   while(gradient_step == 1 or abs(old_log_l - current_log_l) > ACCURACY_GOAL_OF_LOG_LIKELHOOD):
     old_log_l = current_log_l # + log_prior_on_tau(tau)
