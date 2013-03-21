@@ -6,23 +6,20 @@ import math as math
 
 PI = math.pi
 INITIAL_GUESS_OF_BASELINE = baseline = 0.1 # photon count baseline [photons]
-INITIAL_GUESS_OF_STD_NOISE = std_noise = 0.1 # width of camera noise [photons]
-INITIAL_GUESS_OF_TAU = tau = 0.0044 # time scale of exponential decay of signal [s]
+INITIAL_GUESS_OF_STD_NOISE = std_noise = 0.05 # width of camera noise [photons]
+INITIAL_GUESS_OF_TAU = tau = 0.010 # time scale of exponential decay of signal [s]
 TAU_IMAGE = 0.001 # width of one sample, inverse of imaging rate [s]
 gamma = 0.000001 # step size factor of gradient descent
-gamma_for_tau = 0.00000000005 # step size factor of gradient descent
-std_tau = 0.0002 # width of possible tau's [s]
-epsilon = 0.1 # accuracy limit
-alpha = 0.1 # scaling factor of negentropy prior
+# std_tau = 0.0002 # width of possible tau's [s]
 ACCURACY_GOAL_OF_LOG_LIKELHOOD = 1.0
-HIGHEST_POSSIBLE_EVENT_RATE = 4.0
+HIGHEST_POSSIBLE_EVENT_RATE = 3.0
 
 USE_SIMULATED_DATA = True
 PLOT_RESULTS_AT_MAX_EVENT_NUMBER = False
 PLOT_RESULTS_AT_OPTIMAL_EVENT_NUMBER = True
 
 print("------ Actin spike solver, OS, March 2013 ------")
-INPUT_FILE_NAME = "out-tail.dat"
+INPUT_FILE_NAME = "data/out-tail.dat"
 
 if(USE_SIMULATED_DATA):
   print("Simulating data...")
@@ -51,7 +48,8 @@ def recompute_kernel(tau):
 recompute_kernel(tau)
 
 def log_prior_on_tau(tau2):
-  return -1.0*math.log(math.sqrt(2*PI) * std_tau) - math.pow((tau2-INITIAL_GUESS_OF_TAU)/std_tau, 2)
+  # return -1.0*math.log(math.sqrt(2*PI) * std_tau) - math.pow((tau2-INITIAL_GUESS_OF_TAU)/std_tau, 2)
+  return 0.0 # we skip this for the moment
 
 def log_prior_on_latent_data(latent_data):
   # ll = 0.0
@@ -66,10 +64,11 @@ latent_data = np.zeros_like(data)
 print(" -> done.")
 
 def log_likelihood_based_on_latent_data(latent_data, baseline, std_noise):
-  ll = -1.0*samples*math.log(math.sqrt(2.0*PI))
+  ll = -1.0*samples*math.log(math.sqrt(2.0*PI)*std_noise)
   model_prediction = np.convolve(latent_data,kernel,'same') + baseline
   for t in np.arange(samples):
-    ll += -1.0*math.pow(std_noise, -2) * math.pow( data[t] - model_prediction[t], 2)
+    # ll += -1.0*math.pow(std_noise, -2) * math.pow( data[t] - model_prediction[t], 2)
+    ll -= 0.5*math.pow((data[t] - model_prediction[t])/std_noise, 2)
   return ll + log_prior_on_tau(tau) + log_prior_on_latent_data(latent_data)
 
 def log_likelihood_based_on_set_of_events(e_times, e_amplitudes, baseline, std_noise):
@@ -137,14 +136,14 @@ for assumed_number_of_events in range(0, max_number_of_events+1):
       current_log_l = new_log_l
     
     # parameter: standard deviation of noise
-    # std_noise_shifted = std_noise + 0.0001/gradient_step # whatever, just to compute the gradient
-    # new_log_l = log_likelihood_based_on_latent_data(latent_data, baseline, std_noise_shifted) # since latent data unchanged
-    # std_noise_updated = min(0.2, max(0.0001, std_noise + gamma/100.0*(new_log_l-current_log_l)/(0.0001/gradient_step))) 
-    # new_log_l = log_likelihood_based_on_latent_data(latent_data, baseline, std_noise_updated) # since latent data unchanged
-    # if(new_log_l > current_log_l):
-    #   print(' -> found better std. of noise at {x} (log_l -> {ll})'.format(x=std_noise_updated,ll=new_log_l))
-    #   std_noise = std_noise_updated
-    #   current_log_l = new_log_l
+    std_noise_shifted = std_noise + 0.0001/gradient_step # whatever, just to compute the gradient
+    new_log_l = log_likelihood_based_on_latent_data(latent_data, baseline, std_noise_shifted) # since latent data unchanged
+    std_noise_updated = min(0.2, max(0.0001, std_noise + gamma*(new_log_l-current_log_l)/(0.0001/gradient_step))) 
+    new_log_l = log_likelihood_based_on_latent_data(latent_data, baseline, std_noise_updated) # since latent data unchanged
+    if(new_log_l > current_log_l):
+      print(' -> found better std. of noise at {x} (log_l -> {ll})'.format(x=std_noise_updated,ll=new_log_l))
+      std_noise = std_noise_updated
+      current_log_l = new_log_l
     
     # parameter: tau
     if(assumed_number_of_events > 0):
@@ -179,14 +178,14 @@ for assumed_number_of_events in range(0, max_number_of_events+1):
     gradient_step += 1
     
   log_likelihood_history = np.append(log_likelihood_history,current_log_l)
-  inferred_parameters_history[assumed_number_of_events] = [tau, baseline, event_times, event_amplitudes]
+  inferred_parameters_history[assumed_number_of_events] = [tau, baseline, std_noise, event_times, event_amplitudes]
   print(" -> Result after growth step #{s}: log_l = {ll}".format(s=assumed_number_of_events,ll=current_log_l))
 
 print("\n------ Results at max. event number ------")
 print("> Inferred parameters:")
 print("> tau = {y}s (initial guess was {x}s)".format(y=tau,x=INITIAL_GUESS_OF_TAU))
 print("> baseline F_0 = {y} (initial guess was {x})".format(y=baseline,x=INITIAL_GUESS_OF_BASELINE))
-# print("> sigma_F = {y} (initial guess was {x})".format(y=std_noise,x=INITIAL_GUESS_OF_STD_NOISE))
+print("> sigma_F = {y} (initial guess was {x})".format(y=std_noise,x=INITIAL_GUESS_OF_STD_NOISE))
 # print("> most likely number of events: {n}".format(n=log_likelihood_history.argmax()))
 # print inferred_parameters_history[log_likelihood_history.argmax()]
 
@@ -201,7 +200,7 @@ if(PLOT_RESULTS_AT_MAX_EVENT_NUMBER):
   plt.subplot(412)
   # plt.xlabel('time (s)')
   plt.ylabel('actin count')
-  plt.plot(event_times*TAU_IMAGE, event_amplitudes, 'go')
+  plt.plot(event_times*TAU_IMAGE + min(times), event_amplitudes, 'go')
   plt.xlim(min(times), max(times))
   plt.ylim(0.0, 1.1*max(event_amplitudes))
 
@@ -220,13 +219,13 @@ if(PLOT_RESULTS_AT_MAX_EVENT_NUMBER):
 
 
 print("\n------ Results at the most likely event number ------")
-tau, baseline, event_times, event_amplitudes = inferred_parameters_history[log_likelihood_history.argmax()]
+tau, baseline, std_noise, event_times, event_amplitudes = inferred_parameters_history[log_likelihood_history.argmax()]
 recompute_kernel(tau)
 set_latent_data_array_based_on_set_of_events(event_times, event_amplitudes)
 print("> Inferred parameters:")
 print("> tau = {y}s (initial guess was {x}s)".format(y=tau,x=INITIAL_GUESS_OF_TAU))
 print("> baseline F_0 = {y} (initial guess was {x})".format(y=baseline,x=INITIAL_GUESS_OF_BASELINE))
-# print("> sigma_F = {y} (initial guess was {x})".format(y=std_noise,x=INITIAL_GUESS_OF_STD_NOISE))
+print("> sigma_F = {y} (initial guess was {x})".format(y=std_noise,x=INITIAL_GUESS_OF_STD_NOISE))
 print("> most likely number of events: {n}".format(n=log_likelihood_history.argmax()))
 # print inferred_parameters_history[log_likelihood_history.argmax()]
 
@@ -241,7 +240,7 @@ if(PLOT_RESULTS_AT_OPTIMAL_EVENT_NUMBER):
   plt.subplot(412)
   # plt.xlabel('time (s)')
   plt.ylabel('actin count')
-  plt.plot(event_times*TAU_IMAGE, event_amplitudes, 'go')
+  plt.plot(event_times*TAU_IMAGE + min(times), event_amplitudes, 'go')
   plt.xlim(min(times), max(times))
   plt.ylim(0.0, 1.1*max(event_amplitudes))
 
