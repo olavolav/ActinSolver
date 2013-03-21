@@ -164,16 +164,41 @@ for assumed_number_of_events in range(0, max_number_of_events+1):
       recompute_kernel(tau)
     
     # parameter: all event amplitudes
+    event_amplitudes_shifted = np.array(event_amplitudes, float)
     for i_event in range(event_times.size):
-      event_amplitudes_shifted = np.array(event_amplitudes, float)
       event_amplitudes_shifted[i_event] += 0.01/gradient_step # whatever, just to compute the gradient
       new_log_l = log_likelihood_based_on_set_of_events(event_times, event_amplitudes_shifted, baseline, std_noise)
       event_amplitudes_shifted[i_event] = min(10.0, max(1.0, event_amplitudes_shifted[i_event] + gamma*(new_log_l-current_log_l)/(0.01/gradient_step)))
       new_log_l = log_likelihood_based_on_set_of_events(event_times, event_amplitudes_shifted, baseline, std_noise)
       if(new_log_l > current_log_l):
-        print(' -> found better amplitude for event #{i}: {x} (log_l -> {ll})'.format(i=i_event, x=tau_updated, ll=new_log_l))
+        print(' -> found better amplitude for event #{i}: {x} (log_l -> {ll})'.format(i=i_event, x=event_amplitudes_shifted[i_event], ll=new_log_l))
         event_amplitudes[i_event] = event_amplitudes_shifted[i_event]
         current_log_l = new_log_l
+      
+      # parameter: all event times
+      event_times_shifted = np.array(event_times, int)
+      for i_event in range(event_times.size):
+        new_log_l_shiftleft = new_log_l_shiftright = current_log_l
+        # try to move to the left if unoccupied
+        if( (event_times_shifted[i_event]-1 == event_times).any() ):
+          event_times_shifted[i_event] -= 1
+          new_log_l_shiftleft = log_likelihood_based_on_set_of_events(event_times_shifted, event_amplitudes, baseline, std_noise)
+          event_times_shifted[i_event] = event_times[i_event] # reset
+        # try to move to the right if unoccupied
+        if( (event_times_shifted[i_event]+1 == event_times).any() ):
+          event_times_shifted[i_event] += 1
+          new_log_l_shiftright = log_likelihood_based_on_set_of_events(event_times_shifted, event_amplitudes, baseline, std_noise)
+          event_times_shifted[i_event] = event_times[i_event] # reset
+        # if any of these possibilities is more likely, then move event time
+        if(new_log_l_shiftleft > current_log_l or new_log_l_shiftright > current_log_l):
+          if(new_log_l_shiftleft > new_log_l_shiftright):
+            event_times[i_event] -= 1
+            current_log_l = new_log_l_shiftleft
+            print(' -> found better time for event #{i} on the left: {x}s (log_l -> {ll})'.format(i=i_event, x=event_times[i_event]*TAU_IMAGE, ll=current_log_l))
+          else:
+            event_times[i_event] += 1
+            current_log_l = new_log_l_shiftright
+            print(' -> found better time for event #{i} on the right: {x}s (log_l -> {ll})'.format(i=i_event, x=event_times[i_event]*TAU_IMAGE, ll=current_log_l))
     
     gradient_step += 1
     
